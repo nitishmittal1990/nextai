@@ -45,6 +45,7 @@ async function run() {
     let reviewComments = [];
     let shouldRequestChanges = false;
     let autoApprove = true;
+    let fileLineComments = [];
 
     // --- Enhanced Review Logic ---
 
@@ -173,11 +174,40 @@ async function run() {
                   file.filename
                 );
                 if (spellingIssues.length > 0) {
-                  reviewComments.push(
-                    `🔤 **Spelling Issues in \`${file.filename}\`:**\n` +
-                      spellingIssues.map((issue) => `• ${issue}`).join("\n")
-                  );
-                  // Don't block for spelling issues, just comment
+                  // For each issue, try to find the line number and add a file/line comment
+                  for (const issue of spellingIssues) {
+                    const { identifier, suggestion, reason } = issue;
+                    const lines = fileContent.split("\n");
+                    let lineNumber = null;
+                    for (let i = 0; i < lines.length; i++) {
+                      // Look for the identifier as a whole word in the line
+                      const regex = new RegExp(`\\b${identifier}\\b`);
+                      if (regex.test(lines[i])) {
+                        lineNumber = i + 1; // GitHub API uses 1-based line numbers
+                        break;
+                      }
+                    }
+                    if (lineNumber) {
+                      fileLineComments.push({
+                        path: file.filename,
+                        line: lineNumber,
+                        side: "RIGHT",
+                        body: `🔤 **Spelling Issue:** \`${identifier}\` → \`${suggestion}\`\n${
+                          reason ||
+                          "Possible typo in variable or identifier name."
+                        }`,
+                      });
+                    } else {
+                      // If line not found, add to summary
+                      reviewComments.push(
+                        `🔤 **Spelling Issue in \`${
+                          file.filename
+                        }\`:** \`${identifier}\` → \`${suggestion}\` (${
+                          reason || "spelling issue"
+                        })`
+                      );
+                    }
+                  }
                 }
               } catch (error) {
                 console.log(
@@ -207,15 +237,18 @@ async function run() {
     }
 
     // Post the review
-    if (reviewComments.length > 0) {
+    if (reviewComments.length > 0 || fileLineComments.length > 0) {
       await octokit.pulls.createReview({
         owner,
         repo,
         pull_number: prNumber,
         body: reviewBody,
         event: shouldRequestChanges ? "REQUEST_CHANGES" : "COMMENT",
+        comments: fileLineComments,
       });
-      console.log(`📝 Posted review with ${reviewComments.length} comments.`);
+      console.log(
+        `📝 Posted review with ${reviewComments.length} summary comments and ${fileLineComments.length} file/line comments.`
+      );
     } else if (autoApprove) {
       await octokit.pulls.createReview({
         owner,
@@ -242,29 +275,17 @@ async function run() {
 // Function to check spelling using OpenAI API
 async function checkSpellingWithOpenAI(openai, fileContent, filename) {
   const issues = [];
-
   try {
     // Extract variable names, function names, and other identifiers
     const identifiers = extractIdentifiers(fileContent);
-
     if (identifiers.length === 0) return issues;
-
-    // Create a prompt for OpenAI to check spelling
-    const prompt = `Please analyze the following code identifiers for potential spelling mistakes, typos, or naming issues. 
-    
-Code identifiers to check:
-${identifiers.map((id) => `- ${id}`).join("\n")}
-
-Please respond with a JSON array of issues found, where each issue has:
-- "identifier": the misspelled identifier
-- "suggestion": the suggested correction
-- "reason": brief explanation of the issue
-
-Only include actual spelling mistakes or clear typos. Ignore valid technical terms, abbreviations, or intentional naming conventions.
-Respond only with valid JSON, no other text.`;
-
+    const prompt = `Please analyze the following code identifiers for potential spelling mistakes, typos, or naming issues. \n\nCode identifiers to check:\n${identifiers
+      .map((id) => `- ${id}`)
+      .join(
+        "\n"
+      )}\n\nPlease respond with a JSON array of issues found, where each issue has:\n- "identifier": the misspelled identifier\n- "suggestion": the suggested correction\n- "reason": brief explanation of the issue\n\nOnly include actual spelling mistakes or clear typos. Ignore valid technical terms, abbreviations, or intentional naming conventions.\nRespond only with valid JSON, no other text.`;
     const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -279,7 +300,6 @@ Respond only with valid JSON, no other text.`;
       temperature: 0.1,
       max_tokens: 500,
     });
-
     const content = response.choices[0]?.message?.content;
     if (content) {
       try {
@@ -287,11 +307,7 @@ Respond only with valid JSON, no other text.`;
         if (Array.isArray(spellingIssues)) {
           spellingIssues.forEach((issue) => {
             if (issue.identifier && issue.suggestion) {
-              issues.push(
-                `\`${issue.identifier}\` → \`${issue.suggestion}\` (${
-                  issue.reason || "spelling issue"
-                })`
-              );
+              issues.push(issue);
             }
           });
         }
@@ -304,51 +320,43 @@ Respond only with valid JSON, no other text.`;
   } catch (error) {
     console.log(`OpenAI API error for ${filename}: ${error.message}`);
   }
-
   return issues;
 }
 
 // Function to extract identifiers from code
 function extractIdentifiers(code) {
   const identifiers = new Set();
-
   // Extract variable declarations (const, let, var)
   const varPattern = /(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
   let match;
   while ((match = varPattern.exec(code)) !== null) {
     identifiers.add(match[1]);
   }
-
   // Extract function declarations
   const funcPattern = /function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
   while ((match = funcPattern.exec(code)) !== null) {
     identifiers.add(match[1]);
   }
-
   // Extract arrow function assignments
   const arrowFuncPattern = /([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*\([^)]*\)\s*=>/g;
   while ((match = arrowFuncPattern.exec(code)) !== null) {
     identifiers.add(match[1]);
   }
-
   // Extract class names
   const classPattern = /class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
   while ((match = classPattern.exec(code)) !== null) {
     identifiers.add(match[1]);
   }
-
   // Extract interface names
   const interfacePattern = /interface\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
   while ((match = interfacePattern.exec(code)) !== null) {
     identifiers.add(match[1]);
   }
-
   // Extract type names
   const typePattern = /type\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
   while ((match = typePattern.exec(code)) !== null) {
     identifiers.add(match[1]);
   }
-
   // Filter out common technical terms and short names
   const filteredIdentifiers = Array.from(identifiers).filter(
     (id) =>
@@ -370,7 +378,6 @@ function extractIdentifiers(code) {
         "ts",
       ].includes(id.toLowerCase())
   );
-
   return filteredIdentifiers.slice(0, 20); // Limit to 20 identifiers to avoid API limits
 }
 
