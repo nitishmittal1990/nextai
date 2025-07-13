@@ -2,5 +2,9 @@
   "name": "pr-review-scripts",
   "version": "1.0.0",
   "type": "module",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@octokit/rest": "^21.0.0",
+    "openai": "^4.0.0"
+  }
 }
