@@ -1,0 +1,36 @@
+{
+  "editor.formatOnSave": true,
+  "[typescript]": {
+    "editor.formatOnSave": false
+  },
+  "editor.formatOnPaste": true,
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "javascript.preferences.importModuleSpecifier": "relative",
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "[javascript, jsx]": {
+    "editor.formatOnSave": false
+  },
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/.idea": true
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "cSpell.words": [
+    "Cheatsheet",
+    "consumerapi",
+    "coreapi",
+    "Headshot",
+    "Instream",
+    "nextjs",
+    "playnwatch"
+  ]
+}
