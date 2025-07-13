@@ -1,6 +1,7 @@
 export default function Home() {
   const DESCRIPItON =
     "Super AI usecase: Automated code review, intelligent PR analysis, and seamless development workflow powered by artificial intelligence.";
+  const TIGHT = "GitHub AI Workflow";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -29,7 +30,7 @@ export default function Home() {
           {/* Title and Description */}
           <div className="text-center sm:text-left">
             <h1 className="text-4xl sm:text-6xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4 animate-fade-in-up">
-              GitHub AI Workflow
+              {TIGHT}
             </h1>
             <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl leading-relaxed animate-fade-in-up [animation-delay:300ms]">
               {DESCRIPItON}
