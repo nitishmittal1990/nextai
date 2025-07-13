@@ -8,27 +8,37 @@ jobs:
   review:
     runs-on: ubuntu-latest
     permissions:
-      contents: read # Required to read file content
-      pull-requests: write # Required to comment/review on PRs
+      contents: read
+      pull-requests: write
+      actions: read
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4 # Action to checkout your repository's code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for better diff analysis
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
 
       - name: Install Dependencies
         run: |
-          npm init -y
-          npm install @octokit/rest # Install Octokit for GitHub API interaction
+          npm ci
+          cd .github/scripts && npm install @octokit/rest
 
-      - name: Run PR Checks
-        id: pr_checks
-        run: node .github/workflows/pr-review-logic.js
+      - name: Run Linting
+        run: npm run lint
+
+      - name: Run PR Review
+        id: pr_review
+        run: node .github/scripts/pr-review.js
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub's built-in token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPOSITORY: ${{ github.repository }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
