@@ -1,0 +1,34 @@
+name: Automated PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # Required to read file content
+      pull-requests: write # Required to comment/review on PRs
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4 # Action to checkout your repository's code
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Dependencies
+        run: |
+          npm init -y
+          npm install @octokit/rest # Install Octokit for GitHub API interaction
+
+      - name: Run PR Checks
+        id: pr_checks
+        run: node .github/workflows/pr-review-logic.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub's built-in token
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
