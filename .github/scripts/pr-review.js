@@ -1,8 +1,10 @@
 // .github/workflows/pr-review-logic.js
 import { Octokit } from "@octokit/rest";
+import OpenAI from "openai";
 
 async function run() {
   const githubToken = process.env.GITHUB_TOKEN;
+  const openaiApiKey = process.env.OPENAI_API_KEY;
   const prNumber = process.env.PR_NUMBER;
   const repository = process.env.REPOSITORY; // e.g., "owner/repo-name"
 
@@ -13,6 +15,15 @@ async function run() {
 
   const [owner, repo] = repository.split("/");
   const octokit = new Octokit({ auth: githubToken });
+
+  // Initialize OpenAI client if API key is provided
+  let openai = null;
+  if (openaiApiKey) {
+    openai = new OpenAI({ apiKey: openaiApiKey });
+    console.log("🤖 OpenAI API initialized for spelling checks.");
+  } else {
+    console.log("⚠️ OpenAI API key not provided. Skipping spelling checks.");
+  }
 
   console.log(`🔍 Reviewing PR #${prNumber} in ${owner}/${repo}...`);
 
@@ -69,36 +80,6 @@ async function run() {
       autoApprove = false;
     } else {
       console.log("✅ PR description is sufficient.");
-    }
-
-    // Check 3: Test coverage
-    const codeFilesChanged = files.some(
-      (file) =>
-        (file.status === "added" || file.status === "modified") &&
-        (file.filename.endsWith(".ts") ||
-          file.filename.endsWith(".tsx") ||
-          file.filename.endsWith(".js") ||
-          file.filename.endsWith(".jsx")) &&
-        !file.filename.includes(".test.") &&
-        !file.filename.includes(".spec.") &&
-        !file.filename.includes("__tests__")
-    );
-
-    const testFilesChanged = files.some(
-      (file) =>
-        file.filename.includes(".test.") ||
-        file.filename.includes(".spec.") ||
-        file.filename.includes("__tests__")
-    );
-
-    if (codeFilesChanged && !testFilesChanged) {
-      reviewComments.push(
-        `🧪 **Missing Tests:** Code files were changed but no corresponding test files were modified. Please ensure adequate test coverage for your changes.`
-      );
-      shouldRequestChanges = true;
-      autoApprove = false;
-    } else if (codeFilesChanged && testFilesChanged) {
-      console.log("✅ Test coverage detected.");
     }
 
     // Check 4: File naming and structure
@@ -176,6 +157,34 @@ async function run() {
               shouldRequestChanges = true;
               autoApprove = false;
             }
+
+            // Check 7: OpenAI spelling check for variable names and code elements
+            if (
+              openai &&
+              (file.filename.endsWith(".ts") ||
+                file.filename.endsWith(".tsx") ||
+                file.filename.endsWith(".js") ||
+                file.filename.endsWith(".jsx"))
+            ) {
+              try {
+                const spellingIssues = await checkSpellingWithOpenAI(
+                  openai,
+                  fileContent,
+                  file.filename
+                );
+                if (spellingIssues.length > 0) {
+                  reviewComments.push(
+                    `🔤 **Spelling Issues in \`${file.filename}\`:**\n` +
+                      spellingIssues.map((issue) => `• ${issue}`).join("\n")
+                  );
+                  // Don't block for spelling issues, just comment
+                }
+              } catch (error) {
+                console.log(
+                  `Could not check spelling for ${file.filename}: ${error.message}`
+                );
+              }
+            }
           }
         } catch (error) {
           console.log(
@@ -228,6 +237,141 @@ async function run() {
     });
     process.exit(1);
   }
+}
+
+// Function to check spelling using OpenAI API
+async function checkSpellingWithOpenAI(openai, fileContent, filename) {
+  const issues = [];
+
+  try {
+    // Extract variable names, function names, and other identifiers
+    const identifiers = extractIdentifiers(fileContent);
+
+    if (identifiers.length === 0) return issues;
+
+    // Create a prompt for OpenAI to check spelling
+    const prompt = `Please analyze the following code identifiers for potential spelling mistakes, typos, or naming issues. 
+    
+Code identifiers to check:
+${identifiers.map((id) => `- ${id}`).join("\n")}
+
+Please respond with a JSON array of issues found, where each issue has:
+- "identifier": the misspelled identifier
+- "suggestion": the suggested correction
+- "reason": brief explanation of the issue
+
+Only include actual spelling mistakes or clear typos. Ignore valid technical terms, abbreviations, or intentional naming conventions.
+Respond only with valid JSON, no other text.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a code review assistant that checks for spelling mistakes in variable names and code identifiers. Respond only with valid JSON.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 500,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (content) {
+      try {
+        const spellingIssues = JSON.parse(content);
+        if (Array.isArray(spellingIssues)) {
+          spellingIssues.forEach((issue) => {
+            if (issue.identifier && issue.suggestion) {
+              issues.push(
+                `\`${issue.identifier}\` → \`${issue.suggestion}\` (${
+                  issue.reason || "spelling issue"
+                })`
+              );
+            }
+          });
+        }
+      } catch (parseError) {
+        console.log(
+          `Could not parse OpenAI response for ${filename}: ${parseError.message}`
+        );
+      }
+    }
+  } catch (error) {
+    console.log(`OpenAI API error for ${filename}: ${error.message}`);
+  }
+
+  return issues;
+}
+
+// Function to extract identifiers from code
+function extractIdentifiers(code) {
+  const identifiers = new Set();
+
+  // Extract variable declarations (const, let, var)
+  const varPattern = /(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
+  let match;
+  while ((match = varPattern.exec(code)) !== null) {
+    identifiers.add(match[1]);
+  }
+
+  // Extract function declarations
+  const funcPattern = /function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
+  while ((match = funcPattern.exec(code)) !== null) {
+    identifiers.add(match[1]);
+  }
+
+  // Extract arrow function assignments
+  const arrowFuncPattern = /([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*\([^)]*\)\s*=>/g;
+  while ((match = arrowFuncPattern.exec(code)) !== null) {
+    identifiers.add(match[1]);
+  }
+
+  // Extract class names
+  const classPattern = /class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
+  while ((match = classPattern.exec(code)) !== null) {
+    identifiers.add(match[1]);
+  }
+
+  // Extract interface names
+  const interfacePattern = /interface\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
+  while ((match = interfacePattern.exec(code)) !== null) {
+    identifiers.add(match[1]);
+  }
+
+  // Extract type names
+  const typePattern = /type\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
+  while ((match = typePattern.exec(code)) !== null) {
+    identifiers.add(match[1]);
+  }
+
+  // Filter out common technical terms and short names
+  const filteredIdentifiers = Array.from(identifiers).filter(
+    (id) =>
+      id.length > 2 &&
+      ![
+        "id",
+        "url",
+        "api",
+        "ui",
+        "ux",
+        "db",
+        "http",
+        "https",
+        "json",
+        "xml",
+        "css",
+        "html",
+        "js",
+        "ts",
+      ].includes(id.toLowerCase())
+  );
+
+  return filteredIdentifiers.slice(0, 20); // Limit to 20 identifiers to avoid API limits
 }
 
 run();

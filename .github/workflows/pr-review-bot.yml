@@ -27,7 +27,7 @@ jobs:
       - name: Install Dependencies
         run: |
           npm ci
-          cd .github/scripts && npm install @octokit/rest
+          cd .github/scripts && npm install
 
       - name: Run Linting
         run: npm run lint
@@ -37,6 +37,7 @@ jobs:
         run: node .github/scripts/pr-review.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPOSITORY: ${{ github.repository }}
           PR_TITLE: ${{ github.event.pull_request.title }}
