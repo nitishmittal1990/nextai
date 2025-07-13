@@ -1,5 +1,5 @@
 export default function Home() {
-  const DESCRIPION =
+  const DESCRIPItON =
     "Super AI usecase: Automated code review, intelligent PR analysis, and seamless development workflow powered by artificial intelligence.";
 
   return (
@@ -32,7 +32,7 @@ export default function Home() {
               GitHub AI Workflow
             </h1>
             <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl leading-relaxed animate-fade-in-up [animation-delay:300ms]">
-              {DESCRIPION}
+              {DESCRIPItON}
             </p>
           </div>
 
