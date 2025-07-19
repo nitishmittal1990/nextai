@@ -558,6 +558,7 @@ function extractIdentifiers(code) {
         "html",
         "js",
         "ts",
+        "tsx",
       ].includes(id.toLowerCase())
   );
   return filteredIdentifiers.slice(0, 20); // Limit to 20 identifiers to avoid API limits
