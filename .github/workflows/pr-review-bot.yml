@@ -3,6 +3,8 @@ name: Automated PR Review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    branches: ["*"] # Trigger on PRs to any branch
+  workflow_dispatch: # Allow manual triggering
 
 jobs:
   review:
