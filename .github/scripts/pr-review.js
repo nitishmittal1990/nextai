@@ -66,6 +66,15 @@ async function run() {
 
     // Parse diff to get changed line ranges
     const diffLines = parseDiffForChangedLines(diff);
+    console.log("📊 Diff analysis:");
+    console.log(`  Total files in diff: ${diffLines.size}`);
+    for (const [file, lines] of diffLines.entries()) {
+      console.log(
+        `  ${file}: ${lines.length} changed lines (${lines
+          .slice(0, 5)
+          .join(", ")}${lines.length > 5 ? "..." : ""})`
+      );
+    }
 
     let reviewComments = [];
     let shouldRequestChanges = false;
@@ -217,6 +226,14 @@ async function run() {
                 file.filename.endsWith(".jsx"))
             ) {
               console.log(`🔤 Checking spelling in ${file.filename}...`);
+
+              // Debug: Show what identifiers are being extracted
+              const identifiers = extractIdentifiers(fileContent);
+              console.log(
+                `  Found ${identifiers.length} identifiers: ${identifiers
+                  .slice(0, 10)
+                  .join(", ")}${identifiers.length > 10 ? "..." : ""}`
+              );
               try {
                 const spellingIssues = await checkSpellingWithOpenAI(
                   openai,
@@ -227,11 +244,22 @@ async function run() {
                   console.log(
                     `🔤 Found ${spellingIssues.length} spelling issues in ${file.filename}`
                   );
+                  console.log(
+                    `  Issues:`,
+                    spellingIssues
+                      .map(
+                        (issue) => `${issue.identifier} → ${issue.suggestion}`
+                      )
+                      .join(", ")
+                  );
                   // For each issue, try to find the line number and add a file/line comment
                   for (const issue of spellingIssues) {
                     const { identifier, suggestion, reason } = issue;
                     const lines = fileContent.split("\n");
                     let lineNumber = null;
+                    console.log(
+                      `  🔍 Looking for '${identifier}' in ${lines.length} lines...`
+                    );
                     for (let i = 0; i < lines.length; i++) {
                       // Look for the identifier as a whole word in the line
                       const regex = new RegExp(`\\b${identifier}\\b`);
@@ -240,6 +268,7 @@ async function run() {
                         console.log(
                           `📍 Found '${identifier}' on line ${lineNumber} in ${file.filename}`
                         );
+                        console.log(`    Line content: "${lines[i].trim()}"`);
                         break;
                       }
                     }
@@ -303,6 +332,18 @@ async function run() {
     console.log(
       `📊 Review summary: ${reviewComments.length} summary comments, ${fileLineComments.length} file comments`
     );
+
+    // Debug: Show all file comments that will be posted
+    if (fileLineComments.length > 0) {
+      console.log("📋 All file comments to be posted:");
+      fileLineComments.forEach((comment, index) => {
+        console.log(
+          `  ${index + 1}. ${comment.path}:${
+            comment.line
+          } - ${comment.body.substring(0, 100)}...`
+        );
+      });
+    }
 
     if (fileLineComments.length > 0) {
       console.log("📋 File comments to be posted:");
@@ -487,10 +528,15 @@ function addLineComment(
 
   const template = commentTemplates[type];
   if (template) {
-    // Check if the line is actually in the diff before adding comment
-    if (diffLines && !isLineInDiff(diffLines, filename, lineNumber)) {
+    // For spelling issues, we want to comment on the line where the identifier is found
+    // For other issues (console, todo), we only comment if the line is in the diff
+    if (
+      type !== "spelling" &&
+      diffLines &&
+      !isLineInDiff(diffLines, filename, lineNumber)
+    ) {
       console.log(
-        `⚠️ Skipping comment for ${filename}:${lineNumber} - line not in diff`
+        `⚠️ Skipping ${type} comment for ${filename}:${lineNumber} - line not in diff`
       );
       return;
     }

@@ -5,7 +5,7 @@ import { useState } from "react";
 export default function ContactPage() {
   // Adding misspelled variables for testing PR review
 
-  const usrName = "Test User";
+  const usrNme = "Test User";
 
   const userAdress = "123 Main Street";
 
@@ -112,7 +112,7 @@ export default function ContactPage() {
             </p>
             {/* Using misspelled variables to avoid linter errors */}
             <div className="hidden">
-              <p>User: {usrName}</p>
+              <p>User: {usrNme}</p>
               <p>Address: {userAdress}</p>
               <p>Logged in: {isLogedIn ? "Yes" : "No"}</p>
               <p>Config: {configuraton.theme}</p>
