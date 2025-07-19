@@ -162,12 +162,12 @@ export default function ShopPage() {
   const addTCart = (product: Product) => {
     setCartCount((prev) => prev + 1);
     // In a real app, you'd add to cart state/context
-    // console.log("Added to cart:", product.name);
+    console.log("Added to cart:", product.name);
   };
 
   const toggleWishlist = (_productId: number) => {
     // In a real app, you'd toggle wishlist state
-    // console.log("Toggle wishlist for product:", _productId);
+    console.log("Toggle wishlist for product:", _productId);
   };
 
   return (
