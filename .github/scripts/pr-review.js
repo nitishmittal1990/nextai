@@ -113,15 +113,17 @@ async function run() {
     }
 
     // Check 6: Check for common issues in file content
+    console.log(`🔍 Analyzing ${files.length} changed files...`);
     for (const file of files.slice(0, 5)) {
       // Limit to first 5 files to avoid rate limits
+      console.log(`📄 Processing file: ${file.filename} (${file.status})`);
       if (file.status === "added" || file.status === "modified") {
         try {
           const { data: content } = await octokit.repos.getContent({
             owner,
             repo,
             path: file.filename,
-            ref: pullRequest.head.sha,
+            ref: pullRequest.head.ref,
           });
 
           if (content.type === "file" && content.content) {
@@ -167,6 +169,7 @@ async function run() {
                 file.filename.endsWith(".js") ||
                 file.filename.endsWith(".jsx"))
             ) {
+              console.log(`🔤 Checking spelling in ${file.filename}...`);
               try {
                 const spellingIssues = await checkSpellingWithOpenAI(
                   openai,
@@ -174,6 +177,9 @@ async function run() {
                   file.filename
                 );
                 if (spellingIssues.length > 0) {
+                  console.log(
+                    `🔤 Found ${spellingIssues.length} spelling issues in ${file.filename}`
+                  );
                   // For each issue, try to find the line number and add a file/line comment
                   for (const issue of spellingIssues) {
                     const { identifier, suggestion, reason } = issue;
@@ -184,6 +190,9 @@ async function run() {
                       const regex = new RegExp(`\\b${identifier}\\b`);
                       if (regex.test(lines[i])) {
                         lineNumber = i + 1; // GitHub API uses 1-based line numbers
+                        console.log(
+                          `📍 Found '${identifier}' on line ${lineNumber} in ${file.filename}`
+                        );
                         break;
                       }
                     }
@@ -191,14 +200,20 @@ async function run() {
                       fileLineComments.push({
                         path: file.filename,
                         line: lineNumber,
-                        side: "RIGHT",
+                        side: "REVIEWED",
                         body: `🔤 **Spelling Issue:** \`${identifier}\` → \`${suggestion}\`\n${
                           reason ||
                           "Possible typo in variable or identifier name."
                         }`,
                       });
+                      console.log(
+                        `📝 Added file comment for ${file.filename}:${lineNumber}`
+                      );
                     } else {
                       // If line not found, add to summary
+                      console.log(
+                        `⚠️ Could not find line number for '${identifier}' in ${file.filename}`
+                      );
                       reviewComments.push(
                         `🔤 **Spelling Issue in \`${
                           file.filename
@@ -237,6 +252,21 @@ async function run() {
     }
 
     // Post the review
+    console.log(
+      `📊 Review summary: ${reviewComments.length} summary comments, ${fileLineComments.length} file comments`
+    );
+
+    if (fileLineComments.length > 0) {
+      console.log("📋 File comments to be posted:");
+      fileLineComments.forEach((comment, index) => {
+        console.log(
+          `  ${index + 1}. ${comment.path}:${
+            comment.line
+          } - ${comment.body.substring(0, 50)}...`
+        );
+      });
+    }
+
     if (reviewComments.length > 0 || fileLineComments.length > 0) {
       await octokit.pulls.createReview({
         owner,
@@ -258,6 +288,19 @@ async function run() {
         body: reviewBody,
       });
       console.log("✅ Automatically approved the PR.");
+    } else if (fileLineComments.length > 0 && reviewComments.length === 0) {
+      // If we only have file comments but no summary comments, still post them
+      await octokit.pulls.createReview({
+        owner,
+        repo,
+        pull_number: prNumber,
+        body: "## 🤖 Automated PR Review\n\n✅ **Code quality check completed.** Found some minor issues in the code that have been highlighted inline.",
+        event: "COMMENT",
+        comments: fileLineComments,
+      });
+      console.log(
+        `📝 Posted review with ${fileLineComments.length} file/line comments only.`
+      );
     }
   } catch (error) {
     console.error("❌ Error during PR review:", error);
@@ -381,4 +424,10 @@ function extractIdentifiers(code) {
   return filteredIdentifiers.slice(0, 20); // Limit to 20 identifiers to avoid API limits
 }
 
-run();
+// Export functions for testing
+export { run, checkSpellingWithOpenAI, extractIdentifiers };
+
+// Only run if this is the main module
+if (import.meta.url === `file://${process.argv[1]}`) {
+  run();
+}
