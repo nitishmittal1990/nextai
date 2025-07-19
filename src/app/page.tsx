@@ -108,6 +108,12 @@ export default function Home() {
             >
               Learn More
             </a>
+            <a
+              className="rounded-full border border-solid border-purple-200 dark:border-purple-700 transition-colors flex items-center justify-center hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-300 dark:hover:border-purple-600 font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto hover:scale-105 transform duration-200"
+              href="/contact"
+            >
+              Contact Us
+            </a>
           </div>
         </main>
       </div>
