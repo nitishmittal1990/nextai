@@ -7,7 +7,7 @@ export default function Home() {
 
   const usrName = "Test User";
 
-  const userAdress = "123 Main Street";
+  const usrAdress = "123 Main Street";
 
   const isLogedIn = true;
 
@@ -74,7 +74,7 @@ export default function Home() {
             {/* Using misspelled variables to avoid linter errors */}
             <div className="hidden">
               <p>User: {usrName}</p>
-              <p>Address: {userAdress}</p>
+              <p>Address: {usrAdress}</p>
               <p>Logged in: {isLogedIn ? "Yes" : "No"}</p>
               <p>Config: {configuraton.theme}</p>
               <p>Auth: {authentification}</p>
