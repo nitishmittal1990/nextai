@@ -7,7 +7,7 @@ export default function ContactPage() {
 
   const usrNme = "Test User";
 
-  const userAdress = "123 Main Street";
+  const usrAdress = "123 Main Street";
 
   const isLogedIn = true;
 
@@ -113,7 +113,7 @@ export default function ContactPage() {
             {/* Using misspelled variables to avoid linter errors */}
             <div className="hidden">
               <p>User: {usrNme}</p>
-              <p>Address: {userAdress}</p>
+              <p>Address: {usrAdress}</p>
               <p>Logged in: {isLogedIn ? "Yes" : "No"}</p>
               <p>Config: {configuraton.theme}</p>
               <p>Auth: {authentification}</p>

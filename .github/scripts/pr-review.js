@@ -318,6 +318,23 @@ async function run() {
 
     // --- End of Review Logic ---
 
+    // Test: Add a simple comment if no spelling issues were found (for debugging)
+    if (fileLineComments.length === 0 && openai) {
+      console.log("🧪 Adding test comment for debugging...");
+      addLineComment(
+        fileLineComments,
+        files[0]?.filename || "test.tsx",
+        1,
+        "spelling",
+        {
+          identifier: "test",
+          suggestion: "test",
+          reason: "Test comment for debugging",
+        },
+        diffLines
+      );
+    }
+
     // Create review summary
     let reviewBody = `## 🤖 Automated PR Review\n\n`;
 
@@ -342,32 +359,38 @@ async function run() {
             comment.line
           } - ${comment.body.substring(0, 100)}...`
         );
-      });
-    }
-
-    if (fileLineComments.length > 0) {
-      console.log("📋 File comments to be posted:");
-      fileLineComments.forEach((comment, index) => {
-        console.log(
-          `  ${index + 1}. ${comment.path}:${
-            comment.line
-          } - ${comment.body.substring(0, 50)}...`
-        );
+        // Validate comment structure
+        if (!comment.path || !comment.line || !comment.body) {
+          console.error(
+            `❌ Invalid comment structure at index ${index}:`,
+            comment
+          );
+        }
       });
     }
 
     if (reviewComments.length > 0 || fileLineComments.length > 0) {
-      await octokit.pulls.createReview({
-        owner,
-        repo,
-        pull_number: prNumber,
-        body: reviewBody,
-        event: shouldRequestChanges ? "REQUEST_CHANGES" : "COMMENT",
-        comments: fileLineComments,
-      });
-      console.log(
-        `📝 Posted review with ${reviewComments.length} summary comments and ${fileLineComments.length} file/line comments.`
-      );
+      try {
+        const reviewResponse = await octokit.pulls.createReview({
+          owner,
+          repo,
+          pull_number: prNumber,
+          body: reviewBody,
+          event: shouldRequestChanges ? "REQUEST_CHANGES" : "COMMENT",
+          comments: fileLineComments,
+        });
+        console.log(
+          `📝 Posted review with ${reviewComments.length} summary comments and ${fileLineComments.length} file/line comments.`
+        );
+        console.log(`📋 Review ID: ${reviewResponse.data.id}`);
+        console.log(`📋 Review URL: ${reviewResponse.data.html_url}`);
+      } catch (apiError) {
+        console.error("❌ Error posting review:", apiError.message);
+        if (apiError.response) {
+          console.error("❌ API Response:", apiError.response.data);
+        }
+        throw apiError;
+      }
     } else if (autoApprove) {
       await octokit.pulls.createReview({
         owner,
@@ -379,17 +402,27 @@ async function run() {
       console.log("✅ Automatically approved the PR.");
     } else if (fileLineComments.length > 0 && reviewComments.length === 0) {
       // If we only have file comments but no summary comments, still post them
-      await octokit.pulls.createReview({
-        owner,
-        repo,
-        pull_number: prNumber,
-        body: "## 🤖 Automated PR Review\n\n✅ **Code quality check completed.** Found some minor issues in the code that have been highlighted inline.",
-        event: "COMMENT",
-        comments: fileLineComments,
-      });
-      console.log(
-        `📝 Posted review with ${fileLineComments.length} file/line comments only.`
-      );
+      try {
+        const reviewResponse = await octokit.pulls.createReview({
+          owner,
+          repo,
+          pull_number: prNumber,
+          body: "## 🤖 Automated PR Review\n\n✅ **Code quality check completed.** Found some minor issues in the code that have been highlighted inline.",
+          event: "COMMENT",
+          comments: fileLineComments,
+        });
+        console.log(
+          `📝 Posted review with ${fileLineComments.length} file/line comments only.`
+        );
+        console.log(`📋 Review ID: ${reviewResponse.data.id}`);
+        console.log(`📋 Review URL: ${reviewResponse.data.html_url}`);
+      } catch (apiError) {
+        console.error("❌ Error posting review:", apiError.message);
+        if (apiError.response) {
+          console.error("❌ API Response:", apiError.response.data);
+        }
+        throw apiError;
+      }
     }
   } catch (error) {
     console.error("❌ Error during PR review:", error);
@@ -546,6 +579,8 @@ function addLineComment(
       line: lineNumber,
       side: "RIGHT", // Correct side for line comments per GitHub API (RIGHT for new code)
       body: template.body,
+      // Add position for more precise commenting (optional)
+      // position: lineNumber
     });
     console.log(`📝 Added ${type} comment for ${filename}:${lineNumber}`);
   }
