@@ -3,8 +3,6 @@
 import { useState } from "react";
 
 export default function ContactPage() {
-  // Adding misspelled variables for testing PR review
-
   const usrNme = "Test User";
 
   const usrAdress = "123 Main Street";
@@ -31,7 +29,6 @@ export default function ContactPage() {
     adress: "San Francisco, CA",
   };
 
-  // Misspelled function names for testing
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleUserLogIn = () => {
     console.log("User logged in");
