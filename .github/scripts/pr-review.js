@@ -66,6 +66,15 @@ async function run() {
 
     // Parse diff to get changed line ranges
     const diffLines = parseDiffForChangedLines(diff);
+    console.log("📊 Diff analysis:");
+    console.log(`  Total files in diff: ${diffLines.size}`);
+    for (const [file, lines] of diffLines.entries()) {
+      console.log(
+        `  ${file}: ${lines.length} changed lines (${lines
+          .slice(0, 5)
+          .join(", ")}${lines.length > 5 ? "..." : ""})`
+      );
+    }
 
     let reviewComments = [];
     let shouldRequestChanges = false;
@@ -257,11 +266,15 @@ async function run() {
                         console.log(
                           `📍 Found '${identifier}' on line ${lineNumber} in ${file.filename}`
                         );
+                        console.log(`    Line content: "${lines[i].trim()}"`);
                         break;
                       }
                     }
                     if (lineNumber) {
                       // Create line comment following GitHub API best practices
+                      console.log(
+                        `🔤 Adding spelling comment for '${identifier}' on line ${lineNumber}`
+                      );
                       addLineComment(
                         fileLineComments,
                         file.filename,
@@ -329,6 +342,13 @@ async function run() {
             comment.line
           } - ${comment.body.substring(0, 50)}...`
         );
+        // Debug: Show full comment structure
+        console.log(`    Comment structure:`, {
+          path: comment.path,
+          line: comment.line,
+          side: comment.side,
+          bodyLength: comment.body.length,
+        });
       });
     }
 
@@ -504,10 +524,15 @@ function addLineComment(
 
   const template = commentTemplates[type];
   if (template) {
-    // Check if the line is actually in the diff before adding comment
-    if (diffLines && !isLineInDiff(diffLines, filename, lineNumber)) {
+    // For spelling issues, we want to comment on the line where the identifier is found
+    // For other issues (console, todo), we only comment if the line is in the diff
+    if (
+      type !== "spelling" &&
+      diffLines &&
+      !isLineInDiff(diffLines, filename, lineNumber)
+    ) {
       console.log(
-        `⚠️ Skipping comment for ${filename}:${lineNumber} - line not in diff`
+        `⚠️ Skipping ${type} comment for ${filename}:${lineNumber} - line not in diff`
       );
       return;
     }
@@ -517,8 +542,10 @@ function addLineComment(
       line: lineNumber,
       side: "RIGHT", // Correct side for line comments per GitHub API (RIGHT for new code)
       body: template.body,
+      // Note: GitHub API requires 'line' for line comments, not 'position'
     });
     console.log(`📝 Added ${type} comment for ${filename}:${lineNumber}`);
+    console.log(`    Comment body: ${template.body.substring(0, 100)}...`);
   }
 }
 
