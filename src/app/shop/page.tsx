@@ -5,7 +5,7 @@ import { useState } from "react";
 const ShoppingCart = ({ className }: { className?: string }) => (
   <span className={className}>🛒</span>
 );
-const Search = ({ className }: { className?: string }) => (
+const Serch = ({ className }: { className?: string }) => (
   <span className={className}>🔍</span>
 );
 const Star = ({ className }: { className?: string }) => (
@@ -197,7 +197,7 @@ export default function ShopPage() {
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Search */}
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <Serch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input
                 type="text"
                 placeholder="Search products..."
@@ -359,7 +359,7 @@ export default function ShopPage() {
         {srtedProducts.length === 0 && (
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
-              <Search className="h-12 w-12 mx-auto" />
+              <Serch className="h-12 w-12 mx-auto" />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">
               No products found
