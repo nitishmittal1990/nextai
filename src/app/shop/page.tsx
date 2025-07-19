@@ -11,7 +11,7 @@ const Search = ({ className }: { className?: string }) => (
 const Star = ({ className }: { className?: string }) => (
   <span className={className}>⭐</span>
 );
-const Heart = ({ className }: { className?: string }) => (
+const Hert = ({ className }: { className?: string }) => (
   <span className={className}>❤️</span>
 );
 
@@ -282,7 +282,7 @@ export default function ShopPage() {
                   onClick={() => toggleWishlist(product.id)}
                   className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-sm hover:bg-gray-50"
                 >
-                  <Heart className="h-4 w-4 text-gray-600" />
+                  <Hert className="h-4 w-4 text-gray-600" />
                 </button>
 
                 {/* Out of Stock Overlay */}
