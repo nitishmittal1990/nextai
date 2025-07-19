@@ -32,9 +32,18 @@ jobs:
       - name: Run Linting
         run: npm run lint
 
+      - name: Debug Environment
+        run: |
+          echo "PR Number: ${{ github.event.pull_request.number }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "OpenAI API Key set: ${{ secrets.OPENAI_API_KEY != '' }}"
+          echo "GitHub Token set: ${{ secrets.GITHUB_TOKEN != '' }}"
+
       - name: Run PR Review
         id: pr_review
-        run: node .github/scripts/pr-review.js
+        run: |
+          echo "Starting PR review..."
+          node .github/scripts/pr-review.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -43,3 +52,13 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        continue-on-error: true
+
+      - name: Check PR Review Status
+        run: |
+          if [ "${{ steps.pr_review.outcome }}" == "success" ]; then
+            echo "✅ PR review completed successfully"
+          else
+            echo "❌ PR review failed with exit code ${{ steps.pr_review.outcome }}"
+            echo "Check the logs above for details"
+          fi

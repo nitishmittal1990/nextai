@@ -35,6 +35,9 @@ async function run() {
     console.log("🤖 OpenAI API initialized for spelling checks.");
   } else {
     console.log("⚠️ OpenAI API key not provided. Skipping spelling checks.");
+    console.log(
+      "🔧 To enable spelling checks, add OPENAI_API_KEY to repository secrets."
+    );
   }
 
   console.log(`🔍 Reviewing PR #${prNumber} in ${owner}/${repo}...`);
@@ -318,6 +321,20 @@ async function run() {
     }
 
     // --- End of Review Logic ---
+
+    // Add a basic review comment if no issues were found and no OpenAI
+    if (
+      reviewComments.length === 0 &&
+      fileLineComments.length === 0 &&
+      !openai
+    ) {
+      reviewComments.push(
+        "🤖 **Automated Review Complete**\n\n" +
+          "✅ No issues found in the automated checks.\n\n" +
+          "💡 **Note:** Spelling checks are disabled because OPENAI_API_KEY is not set.\n" +
+          "To enable AI-powered spelling detection, add your OpenAI API key to repository secrets."
+      );
+    }
 
     // Create review summary
     let reviewBody = `## 🤖 Automated PR Review\n\n`;
