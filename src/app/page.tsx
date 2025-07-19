@@ -1,4 +1,5 @@
 export default function Home() {
+  // Trigger workflow for spelling detection testing
   const DESCRIPItON =
     "Super AI usecase: Automated code review, intelligent PR analysis, and seamless development workflow powered by artificial intelligence.";
   const TIGHT = "GitHub AI Workflow";
