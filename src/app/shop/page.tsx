@@ -159,7 +159,7 @@ export default function ShopPage() {
     }
   });
 
-  const addToCart = (product: Product) => {
+  const addTCart = (product: Product) => {
     setCartCount((prev) => prev + 1);
     // In a real app, you'd add to cart state/context
     console.log("Added to cart:", product.name);
@@ -340,7 +340,7 @@ export default function ShopPage() {
 
                 {/* Add to Cart Button */}
                 <button
-                  onClick={() => addToCart(product)}
+                  onClick={() => addTCart(product)}
                   disabled={!product.inStock}
                   className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
                     product.inStock
