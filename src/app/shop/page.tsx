@@ -144,7 +144,7 @@ export default function ShopPage() {
     return matchesCategory && matchesSearch;
   });
 
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
+  const srtedProducts = [...filteredProducts].sort((a, b) => {
     switch (sortBy) {
       case "price-low":
         return a.price - b.price;
@@ -162,12 +162,12 @@ export default function ShopPage() {
   const addTCart = (product: Product) => {
     setCartCount((prev) => prev + 1);
     // In a real app, you'd add to cart state/context
-    console.log("Added to cart:", product.name);
+    // console.log("Added to cart:", product.name);
   };
 
   const toggleWishlist = (_productId: number) => {
     // In a real app, you'd toggle wishlist state
-    console.log("Toggle wishlist for product:", _productId);
+    // console.log("Toggle wishlist for product:", _productId);
   };
 
   return (
@@ -244,13 +244,13 @@ export default function ShopPage() {
         {/* Results Count */}
         <div className="mb-6">
           <p className="text-gray-600">
-            Showing {sortedProducts.length} of {products.length} products
+            Showing {srtedProducts.length} of {products.length} products
           </p>
         </div>
 
         {/* Products Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {sortedProducts.map((product) => (
+          {srtedProducts.map((product) => (
             <div
               key={product.id}
               className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
@@ -356,7 +356,7 @@ export default function ShopPage() {
         </div>
 
         {/* Empty State */}
-        {sortedProducts.length === 0 && (
+        {srtedProducts.length === 0 && (
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               <Search className="h-12 w-12 mx-auto" />
