@@ -6,7 +6,7 @@
 // https://docs.github.com/en/rest/guides/working-with-comments?apiVersion=2022-11-28#pull-request-comments-on-a-line
 //
 // Key features:
-// - Line-specific comments using the correct "side": "REVIEWED" parameter
+// - Line-specific comments using the correct "side": "RIGHT" parameter
 // - AI-powered spelling detection for variable and function names
 // - Code quality checks (console statements, TODO comments)
 // - Proper error handling and debugging output
@@ -426,7 +426,7 @@ function addLineComment(fileLineComments, filename, lineNumber, type, details) {
     fileLineComments.push({
       path: filename,
       line: lineNumber,
-      side: "REVIEWED", // Correct side for line comments per GitHub API
+      side: "RIGHT", // Correct side for line comments per GitHub API (RIGHT for new code)
       body: template.body,
     });
     console.log(`📝 Added ${type} comment for ${filename}:${lineNumber}`);
