@@ -79,6 +79,10 @@ async function run() {
       );
     }
 
+    // Debug: Show the actual diff content
+    console.log("🔍 Raw diff content (first 500 chars):");
+    console.log(diff.substring(0, 500));
+
     let reviewComments = [];
     let shouldRequestChanges = false;
     let autoApprove = true;
@@ -278,7 +282,7 @@ async function run() {
                       console.log(
                         `🔤 Adding spelling comment for '${identifier}' on line ${lineNumber}`
                       );
-                      addLineComment(
+                      const commentAdded = addLineComment(
                         fileLineComments,
                         file.filename,
                         lineNumber,
@@ -290,6 +294,20 @@ async function run() {
                         },
                         diffLines
                       );
+
+                      // If line comment couldn't be added (e.g., line not in diff), add to summary
+                      if (!commentAdded) {
+                        console.log(
+                          `📝 Adding spelling issue to summary: ${identifier} → ${suggestion}`
+                        );
+                        reviewComments.push(
+                          `🔤 **Spelling Issue in \`${
+                            file.filename
+                          }\`:** \`${identifier}\` → \`${suggestion}\` (${
+                            reason || "spelling issue"
+                          })`
+                        );
+                      }
                     } else {
                       // If line not found, add to summary
                       console.log(
@@ -370,17 +388,35 @@ async function run() {
     }
 
     if (reviewComments.length > 0 || fileLineComments.length > 0) {
-      await octokit.pulls.createReview({
-        owner,
-        repo,
-        pull_number: prNumber,
-        body: reviewBody,
-        event: shouldRequestChanges ? "REQUEST_CHANGES" : "COMMENT",
-        comments: fileLineComments,
-      });
-      console.log(
-        `📝 Posted review with ${reviewComments.length} summary comments and ${fileLineComments.length} file/line comments.`
-      );
+      try {
+        console.log(
+          `🚀 Attempting to post review with ${fileLineComments.length} file comments...`
+        );
+        console.log(`📋 Review body: ${reviewBody.substring(0, 200)}...`);
+
+        const reviewResponse = await octokit.pulls.createReview({
+          owner,
+          repo,
+          pull_number: prNumber,
+          body: reviewBody,
+          event: shouldRequestChanges ? "REQUEST_CHANGES" : "COMMENT",
+          comments: fileLineComments,
+        });
+
+        console.log(`✅ Review posted successfully!`);
+        console.log(`📋 Review ID: ${reviewResponse.data.id}`);
+        console.log(`📋 Review URL: ${reviewResponse.data.html_url}`);
+        console.log(
+          `📝 Posted review with ${reviewComments.length} summary comments and ${fileLineComments.length} file/line comments.`
+        );
+      } catch (apiError) {
+        console.error(`❌ Failed to post review: ${apiError.message}`);
+        if (apiError.response) {
+          console.error(`❌ API Response:`, apiError.response.data);
+          console.error(`❌ Status: ${apiError.response.status}`);
+        }
+        throw apiError;
+      }
     } else if (autoApprove) {
       await octokit.pulls.createReview({
         owner,
@@ -392,17 +428,34 @@ async function run() {
       console.log("✅ Automatically approved the PR.");
     } else if (fileLineComments.length > 0 && reviewComments.length === 0) {
       // If we only have file comments but no summary comments, still post them
-      await octokit.pulls.createReview({
-        owner,
-        repo,
-        pull_number: prNumber,
-        body: "## 🤖 Automated PR Review\n\n✅ **Code quality check completed.** Found some minor issues in the code that have been highlighted inline.",
-        event: "COMMENT",
-        comments: fileLineComments,
-      });
-      console.log(
-        `📝 Posted review with ${fileLineComments.length} file/line comments only.`
-      );
+      try {
+        console.log(
+          `🚀 Attempting to post review with ${fileLineComments.length} file comments only...`
+        );
+
+        const reviewResponse = await octokit.pulls.createReview({
+          owner,
+          repo,
+          pull_number: prNumber,
+          body: "## 🤖 Automated PR Review\n\n✅ **Code quality check completed.** Found some minor issues in the code that have been highlighted inline.",
+          event: "COMMENT",
+          comments: fileLineComments,
+        });
+
+        console.log(`✅ Review posted successfully!`);
+        console.log(`📋 Review ID: ${reviewResponse.data.id}`);
+        console.log(`📋 Review URL: ${reviewResponse.data.html_url}`);
+        console.log(
+          `📝 Posted review with ${fileLineComments.length} file/line comments only.`
+        );
+      } catch (apiError) {
+        console.error(`❌ Failed to post review: ${apiError.message}`);
+        if (apiError.response) {
+          console.error(`❌ API Response:`, apiError.response.data);
+          console.error(`❌ Status: ${apiError.response.status}`);
+        }
+        throw apiError;
+      }
     }
   } catch (error) {
     console.error("❌ Error during PR review:", error);
@@ -510,6 +563,7 @@ function isLineInDiff(diffLines, filename, lineNumber) {
 }
 
 // Function to add line comment with proper formatting
+// Returns true if comment was added, false if skipped
 function addLineComment(
   fileLineComments,
   filename,
@@ -541,29 +595,26 @@ function addLineComment(
 
   const template = commentTemplates[type];
   if (template) {
-    // For spelling issues, we want to comment on the line where the identifier is found
-    // For other issues (console, todo), we only comment if the line is in the diff
-    if (
-      type !== "spelling" &&
-      diffLines &&
-      !isLineInDiff(diffLines, filename, lineNumber)
-    ) {
+    // For ALL comments, we need to ensure the line is actually in the diff
+    // GitHub API requires line comments to be on lines that are changed
+    if (diffLines && !isLineInDiff(diffLines, filename, lineNumber)) {
       console.log(
         `⚠️ Skipping ${type} comment for ${filename}:${lineNumber} - line not in diff`
       );
-      return;
+      return false; // Indicate that comment was not added
     }
 
     fileLineComments.push({
       path: filename,
-      line: lineNumber,
+      line: lineNumber, // GitHub API uses 'line' for line comments
       side: "RIGHT", // Correct side for line comments per GitHub API (RIGHT for new code)
       body: template.body,
-      // Note: GitHub API requires 'line' for line comments, not 'position'
     });
     console.log(`📝 Added ${type} comment for ${filename}:${lineNumber}`);
     console.log(`    Comment body: ${template.body.substring(0, 100)}...`);
+    return true; // Indicate that comment was added
   }
+  return false; // Indicate that no comment was added
 }
 
 // Function to extract identifiers from code
