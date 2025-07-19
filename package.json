@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.24.0",
+    "@octokit/rest": "^21.0.2",
     "next": "15.3.5",
+    "openai": "^4.28.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

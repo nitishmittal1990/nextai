@@ -3,6 +3,49 @@ export default function Home() {
     "Super AI usecase: Automated code review, intelligent PR analysis, and seamless development workflow powered by artificial intelligence.";
   const TIGHT = "GitHub AI Workflow";
 
+  // Adding more misspelled variables for testing
+
+  const usrName = "Test User";
+
+  const userAdress = "123 Main Street";
+
+  const isLogedIn = true;
+
+  const configuraton = { theme: "dark" };
+
+  const authentification = "token123";
+
+  const notificatons = ["email", "sms"];
+
+  const prefernces = { language: "en" };
+
+  const validaton = "strict";
+
+  const optimizaton = "performance";
+
+  const integraton = "github";
+
+  // Misspelled function names for testing
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleUserLogIn = () => {
+    console.log("User logged in");
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const processNotificatons = () => {
+    return notificatons.map((n) => n.toUpperCase());
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const validatUserInput = (input: string) => {
+    return input.length > 0;
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const optimizPerformance = () => {
+    return "Performance optimized";
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       {/* Header Section */}
@@ -35,6 +78,19 @@ export default function Home() {
             <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl leading-relaxed animate-fade-in-up [animation-delay:300ms]">
               {DESCRIPItON}
             </p>
+            {/* Using misspelled variables to avoid linter errors */}
+            <div className="hidden">
+              <p>User: {usrName}</p>
+              <p>Address: {userAdress}</p>
+              <p>Logged in: {isLogedIn ? "Yes" : "No"}</p>
+              <p>Config: {configuraton.theme}</p>
+              <p>Auth: {authentification}</p>
+              <p>Notifications: {notificatons.join(", ")}</p>
+              <p>Preferences: {prefernces.language}</p>
+              <p>Validation: {validaton}</p>
+              <p>Optimization: {optimizaton}</p>
+              <p>Integration: {integraton}</p>
+            </div>
           </div>
 
           {/* CTA Buttons */}
