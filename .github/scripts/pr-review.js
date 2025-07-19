@@ -79,9 +79,14 @@ async function run() {
       );
     }
 
-    // Debug: Show the actual diff content
-    console.log("🔍 Raw diff content (first 500 chars):");
-    console.log(diff.substring(0, 500));
+    // Debug: Check if specific files are in the diff
+    console.log("🔍 Checking if files are in diff:");
+    files.forEach((file) => {
+      const fileLines = diffLines.get(file.filename);
+      console.log(
+        `  ${file.filename}: ${fileLines ? fileLines.length : 0} changed lines`
+      );
+    });
 
     let reviewComments = [];
     let shouldRequestChanges = false;
@@ -595,9 +600,13 @@ function addLineComment(
 
   const template = commentTemplates[type];
   if (template) {
-    // For ALL comments, we need to ensure the line is actually in the diff
-    // GitHub API requires line comments to be on lines that are changed
-    if (diffLines && !isLineInDiff(diffLines, filename, lineNumber)) {
+    // For spelling comments, we want to be more lenient and allow them even if not in diff
+    // For other comments (console, todo), we only comment if the line is in the diff
+    if (
+      type !== "spelling" &&
+      diffLines &&
+      !isLineInDiff(diffLines, filename, lineNumber)
+    ) {
       console.log(
         `⚠️ Skipping ${type} comment for ${filename}:${lineNumber} - line not in diff`
       );
