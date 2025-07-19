@@ -15,8 +15,6 @@ export default function Home() {
 
   const authentification = "token123";
 
-  const notificatons = ["email", "sms"];
-
   const prefernces = { language: "en" };
 
   const validaton = "strict";
@@ -29,11 +27,6 @@ export default function Home() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleUserLogIn = () => {
     console.log("User logged in");
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const processNotificatons = () => {
-    return notificatons.map((n) => n.toUpperCase());
   };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -85,7 +78,6 @@ export default function Home() {
               <p>Logged in: {isLogedIn ? "Yes" : "No"}</p>
               <p>Config: {configuraton.theme}</p>
               <p>Auth: {authentification}</p>
-              <p>Notifications: {notificatons.join(", ")}</p>
               <p>Preferences: {prefernces.language}</p>
               <p>Validation: {validaton}</p>
               <p>Optimization: {optimizaton}</p>

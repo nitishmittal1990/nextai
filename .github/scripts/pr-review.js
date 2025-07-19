@@ -1,4 +1,16 @@
-// .github/workflows/pr-review-logic.js
+// .github/scripts/pr-review.js
+// Automated PR Review with GitHub API Line Comments
+//
+// This script implements GitHub's Pull Request Review API to add inline comments
+// to specific lines in changed files. It follows the GitHub API documentation:
+// https://docs.github.com/en/rest/guides/working-with-comments?apiVersion=2022-11-28#pull-request-comments-on-a-line
+//
+// Key features:
+// - Line-specific comments using the correct "side": "REVIEWED" parameter
+// - AI-powered spelling detection for variable and function names
+// - Code quality checks (console statements, TODO comments)
+// - Proper error handling and debugging output
+
 import { Octokit } from "@octokit/rest";
 import OpenAI from "openai";
 
@@ -145,18 +157,38 @@ async function run() {
                 /console\.(log|warn|error|debug)/g
               );
               if (consoleMatches) {
-                reviewComments.push(
-                  `💡 **Console Statements:** \`${file.filename}\` contains ${consoleMatches.length} console statements. Consider removing them for production.`
-                );
+                // Find line numbers for console statements and add line comments
+                const lines = fileContent.split("\n");
+                for (let i = 0; i < lines.length; i++) {
+                  if (/console\.(log|warn|error|debug)/.test(lines[i])) {
+                    addLineComment(
+                      fileLineComments,
+                      file.filename,
+                      i + 1,
+                      "console",
+                      {}
+                    );
+                  }
+                }
               }
             }
 
             // Check for TODO/FIXME comments
             const todoMatches = fileContent.match(/TODO|FIXME|HACK/gi);
             if (todoMatches) {
-              reviewComments.push(
-                `⚠️ **TODO Comments:** \`${file.filename}\` contains ${todoMatches.length} TODO/FIXME/HACK comments. Please address these before merging.`
-              );
+              // Find line numbers for TODO comments and add line comments
+              const lines = fileContent.split("\n");
+              for (let i = 0; i < lines.length; i++) {
+                if (/TODO|FIXME|HACK/gi.test(lines[i])) {
+                  addLineComment(
+                    fileLineComments,
+                    file.filename,
+                    i + 1,
+                    "todo",
+                    {}
+                  );
+                }
+              }
               shouldRequestChanges = true;
               autoApprove = false;
             }
@@ -197,17 +229,17 @@ async function run() {
                       }
                     }
                     if (lineNumber) {
-                      fileLineComments.push({
-                        path: file.filename,
-                        line: lineNumber,
-                        side: "REVIEWED",
-                        body: `🔤 **Spelling Issue:** \`${identifier}\` → \`${suggestion}\`\n${
-                          reason ||
-                          "Possible typo in variable or identifier name."
-                        }`,
-                      });
-                      console.log(
-                        `📝 Added file comment for ${file.filename}:${lineNumber}`
+                      // Create line comment following GitHub API best practices
+                      addLineComment(
+                        fileLineComments,
+                        file.filename,
+                        lineNumber,
+                        "spelling",
+                        {
+                          identifier,
+                          suggestion,
+                          reason,
+                        }
                       );
                     } else {
                       // If line not found, add to summary
@@ -364,6 +396,41 @@ async function checkSpellingWithOpenAI(openai, fileContent, filename) {
     console.log(`OpenAI API error for ${filename}: ${error.message}`);
   }
   return issues;
+}
+
+// Function to add line comment with proper formatting
+function addLineComment(fileLineComments, filename, lineNumber, type, details) {
+  const commentTemplates = {
+    spelling: {
+      body: `🔤 **Spelling Issue:** \`${details.identifier}\` → \`${
+        details.suggestion
+      }\`\n\n**Reason:** ${
+        details.reason || "Possible typo in variable or identifier name."
+      }\n\n**Suggestion:** Consider renaming to \`${
+        details.suggestion
+      }\` for better code clarity.`,
+    },
+    console: {
+      body: `💡 **Console Statement Detected**\n\n**Issue:** Console statements should be removed in production code.\n\n**Suggestion:** Consider using a proper logging library or removing this debug statement.`,
+    },
+    todo: {
+      body: `⚠️ **TODO/FIXME Comment Detected**\n\n**Issue:** This comment indicates incomplete work or technical debt.\n\n**Suggestion:** Please address this before merging, or create an issue to track it.`,
+    },
+    largeFile: {
+      body: `📏 **Large File Warning**\n\n**Issue:** This file has many changes (${details.changes} lines).\n\n**Suggestion:** Consider breaking this into smaller, more focused changes for easier review.`,
+    },
+  };
+
+  const template = commentTemplates[type];
+  if (template) {
+    fileLineComments.push({
+      path: filename,
+      line: lineNumber,
+      side: "REVIEWED", // Correct side for line comments per GitHub API
+      body: template.body,
+    });
+    console.log(`📝 Added ${type} comment for ${filename}:${lineNumber}`);
+  }
 }
 
 // Function to extract identifiers from code
