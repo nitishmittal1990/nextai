@@ -54,6 +54,19 @@ async function run() {
       pull_number: prNumber,
     });
 
+    // 3. Get the diff to understand which lines are actually changed
+    const { data: diff } = await octokit.pulls.get({
+      owner,
+      repo,
+      pull_number: prNumber,
+      mediaType: {
+        format: "diff",
+      },
+    });
+
+    // Parse diff to get changed line ranges
+    const diffLines = parseDiffForChangedLines(diff);
+
     let reviewComments = [];
     let shouldRequestChanges = false;
     let autoApprove = true;
@@ -166,7 +179,8 @@ async function run() {
                       file.filename,
                       i + 1,
                       "console",
-                      {}
+                      {},
+                      diffLines
                     );
                   }
                 }
@@ -185,7 +199,8 @@ async function run() {
                     file.filename,
                     i + 1,
                     "todo",
-                    {}
+                    {},
+                    diffLines
                   );
                 }
               }
@@ -239,7 +254,8 @@ async function run() {
                           identifier,
                           suggestion,
                           reason,
-                        }
+                        },
+                        diffLines
                       );
                     } else {
                       // If line not found, add to summary
@@ -398,8 +414,56 @@ async function checkSpellingWithOpenAI(openai, fileContent, filename) {
   return issues;
 }
 
+// Function to parse diff and get changed line ranges
+function parseDiffForChangedLines(diff) {
+  const changedLines = new Map();
+  const lines = diff.split("\n");
+  let currentFile = null;
+
+  for (const line of lines) {
+    if (line.startsWith("diff --git")) {
+      // Extract filename from diff header
+      const match = line.match(/diff --git a\/(.+) b\/(.+)/);
+      if (match) {
+        currentFile = match[2]; // Use the 'b' side (new file)
+      }
+    } else if (line.startsWith("@@")) {
+      // Parse hunk header: @@ -oldStart,oldCount +newStart,newCount @@
+      const hunkMatch = line.match(/@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@/);
+      if (hunkMatch && currentFile) {
+        const newStart = parseInt(hunkMatch[3]);
+        const newCount = parseInt(hunkMatch[4] || "1");
+
+        if (!changedLines.has(currentFile)) {
+          changedLines.set(currentFile, []);
+        }
+
+        // Add range of changed lines
+        for (let i = newStart; i < newStart + newCount; i++) {
+          changedLines.get(currentFile).push(i);
+        }
+      }
+    }
+  }
+
+  return changedLines;
+}
+
+// Function to check if a line is in the diff
+function isLineInDiff(diffLines, filename, lineNumber) {
+  const fileLines = diffLines.get(filename);
+  return fileLines && fileLines.includes(lineNumber);
+}
+
 // Function to add line comment with proper formatting
-function addLineComment(fileLineComments, filename, lineNumber, type, details) {
+function addLineComment(
+  fileLineComments,
+  filename,
+  lineNumber,
+  type,
+  details,
+  diffLines
+) {
   const commentTemplates = {
     spelling: {
       body: `🔤 **Spelling Issue:** \`${details.identifier}\` → \`${
@@ -423,6 +487,14 @@ function addLineComment(fileLineComments, filename, lineNumber, type, details) {
 
   const template = commentTemplates[type];
   if (template) {
+    // Check if the line is actually in the diff before adding comment
+    if (diffLines && !isLineInDiff(diffLines, filename, lineNumber)) {
+      console.log(
+        `⚠️ Skipping comment for ${filename}:${lineNumber} - line not in diff`
+      );
+      return;
+    }
+
     fileLineComments.push({
       path: filename,
       line: lineNumber,
