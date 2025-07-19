@@ -217,6 +217,15 @@ async function run() {
                 file.filename.endsWith(".jsx"))
             ) {
               console.log(`🔤 Checking spelling in ${file.filename}...`);
+
+              // Debug: Show what identifiers are being extracted
+              const identifiers = extractIdentifiers(fileContent);
+              console.log(
+                `  Found ${identifiers.length} identifiers: ${identifiers
+                  .slice(0, 10)
+                  .join(", ")}${identifiers.length > 10 ? "..." : ""}`
+              );
+
               try {
                 const spellingIssues = await checkSpellingWithOpenAI(
                   openai,
@@ -226,6 +235,14 @@ async function run() {
                 if (spellingIssues.length > 0) {
                   console.log(
                     `🔤 Found ${spellingIssues.length} spelling issues in ${file.filename}`
+                  );
+                  console.log(
+                    `  Issues:`,
+                    spellingIssues
+                      .map(
+                        (issue) => `${issue.identifier} → ${issue.suggestion}`
+                      )
+                      .join(", ")
                   );
                   // For each issue, try to find the line number and add a file/line comment
                   for (const issue of spellingIssues) {
@@ -370,18 +387,18 @@ async function checkSpellingWithOpenAI(openai, fileContent, filename) {
     // Extract variable names, function names, and other identifiers
     const identifiers = extractIdentifiers(fileContent);
     if (identifiers.length === 0) return issues;
-    const prompt = `Please analyze the following code identifiers for potential spelling mistakes, typos, or naming issues. \n\nCode identifiers to check:\n${identifiers
+    const prompt = `Please analyze the following code identifiers and string literals for potential spelling mistakes, typos, or naming issues. \n\nItems to check:\n${identifiers
       .map((id) => `- ${id}`)
       .join(
         "\n"
-      )}\n\nPlease respond with a JSON array of issues found, where each issue has:\n- "identifier": the misspelled identifier\n- "suggestion": the suggested correction\n- "reason": brief explanation of the issue\n\nOnly include actual spelling mistakes or clear typos. Ignore valid technical terms, abbreviations, or intentional naming conventions.\nRespond only with valid JSON, no other text.`;
+      )}\n\nPlease respond with a JSON array of issues found, where each issue has:\n- "identifier": the misspelled identifier or string\n- "suggestion": the suggested correction\n- "reason": brief explanation of the issue\n\nFocus on:\n- Variable names, function names, and code identifiers\n- String literals that appear to be user-facing text or category names\n- Clear spelling mistakes and typos\n\nIgnore valid technical terms, abbreviations, or intentional naming conventions.\nRespond only with valid JSON, no other text.`;
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
           content:
-            "You are a code review assistant that checks for spelling mistakes in variable names and code identifiers. Respond only with valid JSON.",
+            "You are a code review assistant that checks for spelling mistakes in variable names, code identifiers, and string literals. Focus on user-facing text and clear typos. Respond only with valid JSON.",
         },
         {
           role: "user",
@@ -508,37 +525,54 @@ function addLineComment(
 // Function to extract identifiers from code
 function extractIdentifiers(code) {
   const identifiers = new Set();
+
   // Extract variable declarations (const, let, var)
   const varPattern = /(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
   let match;
   while ((match = varPattern.exec(code)) !== null) {
     identifiers.add(match[1]);
   }
+
   // Extract function declarations
   const funcPattern = /function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
   while ((match = funcPattern.exec(code)) !== null) {
     identifiers.add(match[1]);
   }
+
   // Extract arrow function assignments
   const arrowFuncPattern = /([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*\([^)]*\)\s*=>/g;
   while ((match = arrowFuncPattern.exec(code)) !== null) {
     identifiers.add(match[1]);
   }
+
   // Extract class names
   const classPattern = /class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
   while ((match = classPattern.exec(code)) !== null) {
     identifiers.add(match[1]);
   }
+
   // Extract interface names
   const interfacePattern = /interface\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
   while ((match = interfacePattern.exec(code)) !== null) {
     identifiers.add(match[1]);
   }
+
   // Extract type names
   const typePattern = /type\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
   while ((match = typePattern.exec(code)) !== null) {
     identifiers.add(match[1]);
   }
+
+  // Extract string literals (quoted strings) - NEW!
+  const stringPattern = /["'`]([^"'`]+)["'`]/g;
+  while ((match = stringPattern.exec(code)) !== null) {
+    const stringContent = match[1];
+    // Only add strings that look like words/identifiers (not URLs, paths, etc.)
+    if (/^[a-zA-Z\s&]+$/.test(stringContent) && stringContent.length > 2) {
+      identifiers.add(stringContent);
+    }
+  }
+
   // Filter out common technical terms and short names
   const filteredIdentifiers = Array.from(identifiers).filter(
     (id) =>
